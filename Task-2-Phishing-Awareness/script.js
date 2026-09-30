@@ -734,6 +734,7 @@ function initQuiz() {
   let currentQ = 0;
   let score = 0;
   let answered = false;
+  let bestScore = Number(localStorage.getItem('phishingBestScore')) || 0;
 
   function renderQuestion() {
     answered = false;
@@ -802,6 +803,10 @@ function initQuiz() {
     counter.textContent = `Question ${questions.length} of ${questions.length}`;
 
     const pct = Math.round((score / questions.length) * 100);
+    if (score > bestScore) {
+      bestScore = score;
+      localStorage.setItem('phishingBestScore', bestScore);
+   }
     document.getElementById('results-percent').textContent = pct + '%';
 
     const circumference = 2 * Math.PI * 52;
@@ -823,6 +828,9 @@ function initQuiz() {
     document.getElementById('results-title').textContent = title;
     document.getElementById('results-title').style.color = ringColor;
     document.getElementById('results-message').textContent = message;
+    document.getElementById('best-score').textContent =
+        `Best Score: ${bestScore}/${questions.length}`;
+
     ringFill.style.stroke = ringColor;
   }
 
