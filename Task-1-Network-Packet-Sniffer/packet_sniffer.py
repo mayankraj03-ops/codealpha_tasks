@@ -1,27 +1,26 @@
 from scapy.all import sniff, IP, TCP, UDP, ICMP, Raw
 from collections import Counter
+from datetime import datetime
 
-# Packet statistics
-protocol_count = Counter()
-source_count = Counter()
-destination_count = Counter()
+protocol_stats = Counter()
+source_stats = Counter()
+destination_stats = Counter()
 
-total_packets = 0
+packet_number = 0
 
 
 def analyze_packet(packet):
-
-    global total_packets
+    global packet_number
 
     if IP not in packet:
         return
 
-    total_packets += 1
+    packet_number += 1
 
+    timestamp = datetime.now().strftime("%H:%M:%S")
     source_ip = packet[IP].src
     destination_ip = packet[IP].dst
-
-    # ---------------- Protocol & Ports ----------------
+    packet_size = len(packet)
 
     if TCP in packet:
         protocol = "TCP"
@@ -43,92 +42,99 @@ def analyze_packet(packet):
         source_port = "-"
         destination_port = "-"
 
-    # Update statistics
-    protocol_count[protocol] += 1
-    source_count[source_ip] += 1
-    destination_count[destination_ip] += 1
-
-    # ---------------- Packet Layers ----------------
+    protocol_stats[protocol] += 1
+    source_stats[source_ip] += 1
+    destination_stats[destination_ip] += 1
 
     layers = []
-
     current_layer = packet
 
     while current_layer:
         layers.append(current_layer.__class__.__name__)
         current_layer = current_layer.payload
 
-    # ---------------- Payload ----------------
-
     if Raw in packet:
-
-        payload = packet[Raw].load
+        raw_data = packet[Raw].load
 
         try:
-            payload_text = payload.decode(
+            payload_preview = raw_data.decode(
                 "utf-8",
                 errors="replace"
             )
         except Exception:
-            payload_text = str(payload)
+            payload_preview = str(raw_data)
 
-        payload_text = payload_text[:100]
+        payload_preview = payload_preview[:80]
 
     else:
-        payload_text = "No application payload"
+        payload_preview = "No application payload"
 
-    # ---------------- Display Packet ----------------
+    print("\n" + "=" * 60)
+    print("                  PACKET ANALYSIS")
+    print("=" * 60)
+    print(f"Packet Number    : {packet_number}")
+    print(f"Time             : {timestamp}")
+    print(f"Source IP        : {source_ip}")
+    print(f"Destination IP   : {destination_ip}")
+    print(f"Protocol         : {protocol}")
+    print(f"Source Port      : {source_port}")
+    print(f"Destination Port : {destination_port}")
+    print(f"Packet Size      : {packet_size} bytes")
+    print(f"Layers           : {' -> '.join(layers)}")
+    print(f"Payload Preview  : {payload_preview}")
+    print("=" * 60)
 
-    print("\n========== PACKET ANALYSIS ==========")
-    print(f"Source IP       : {source_ip}")
-    print(f"Destination IP  : {destination_ip}")
-    print(f"Protocol        : {protocol}")
-    print(f"Source Port     : {source_port}")
-    print(f"Destination Port: {destination_port}")
-    print(f"Layers          : {' -> '.join(layers)}")
-    print(f"Payload         : {payload_text}")
-    print("=====================================")
 
+def display_statistics():
+    print("\n\n" + "=" * 60)
+    print("                  CAPTURE SUMMARY")
+    print("=" * 60)
 
-def show_statistics():
-
-    print("\n\n=====================================")
-    print("        PACKET STATISTICS")
-    print("=====================================")
-
-    print(f"\nTotal Packets: {total_packets}")
+    print(f"\nTotal Packets Captured: {packet_number}")
 
     print("\nProtocol Distribution:")
-    for protocol, count in protocol_count.items():
+    for protocol, count in protocol_stats.most_common():
         print(f"  {protocol:<8}: {count}")
 
     print("\nTop Source IPs:")
-    for ip, count in source_count.most_common(5):
-        print(f"  {ip:<18}: {count}")
+    for address, count in source_stats.most_common(5):
+        print(f"  {address:<18}: {count}")
 
     print("\nTop Destination IPs:")
-    for ip, count in destination_count.most_common(5):
-        print(f"  {ip:<18}: {count}")
+    for address, count in destination_stats.most_common(5):
+        print(f"  {address:<18}: {count}")
 
-    print("\n=====================================")
-
-
-print("=====================================")
-print("       NETWORK PACKET SNIFFER")
-print("=====================================")
-print("Capturing network traffic...")
-print("Press CTRL+C to stop.\n")
+    print("\n" + "=" * 60)
 
 
-try:
 
-    sniff(
-        prn=analyze_packet,
-        store=False
-    )
+def start_sniffer():
+    print("=" * 60)
+    print("             NETWORK PACKET SNIFFER")
+    print("                 SCAPY ANALYZER")
+    print("=" * 60)
+    print("\nPacket capture started.")
+    print("Press CTRL+C to stop the program.\n")
 
-except KeyboardInterrupt:
+    sniffer = None
 
-    print("\n\nStopping packet capture...")
+    try:
+        from scapy.all import AsyncSniffer
 
-    show_statistics()
+        sniffer = AsyncSniffer(
+            prn=analyze_packet,
+            store=False
+        )
+
+        sniffer.start()
+
+        while True:
+            pass
+
+    except KeyboardInterrupt:
+        print("\n\nStopping packet capture...")
+
+        if sniffer is not None:
+            sniffer.stop()
+
+        display_statistics()
