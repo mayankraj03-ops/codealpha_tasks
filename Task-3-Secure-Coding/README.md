@@ -1,355 +1,387 @@
 # Secure Coding Review
 
-
 ## 1. Project Overview
 
+This project demonstrates a secure coding review of a Python Flask web application.
 
-This project demonstrates a security-focused code review of a Python Flask web application.
+The project contains an application used as the audit target and a separate remediated version showing how common security weaknesses can be addressed using secure coding practices.
 
+The review combines:
 
-The application was intentionally created with common security vulnerabilities so that they could be identified using static analysis and manual code inspection.
+- Manual source-code inspection
+- Static security analysis using Bandit
+- Security-focused application testing
+- Secure coding remediation
+- Before-and-after comparison
 
-
-After identifying the vulnerabilities, secure coding practices were applied to remediate the issues.
-
-
-The application was then scanned again using Bandit to verify the security improvements.
-
+The application is intended for local educational security testing only.
 
 ---
 
-
-## 2. Objective
-
+## 2. Objectives
 
 The main objectives of this project are:
 
-
-- Select and review a Python Flask application.
-- Identify security vulnerabilities through code review.
-- Use a static security analysis tool.
-- Understand the security impact of identified vulnerabilities.
-- Apply secure coding practices.
-- Document vulnerabilities and remediation steps.
-- Re-scan the application after fixing the issues.
-- Verify that the application continues to work correctly.
-
+- Review a Python Flask application for common security weaknesses.
+- Identify security issues through source-code inspection.
+- Use Bandit for static security analysis.
+- Understand the impact of common vulnerabilities.
+- Apply secure coding techniques.
+- Create a separate secure implementation.
+- Test the security improvements locally.
+- Document the findings and remediation process.
 
 ---
-
 
 ## 3. Technologies Used
 
-
 - Python
 - Flask
+- Werkzeug
 - SQLite
 - Bandit
-- Visual Studio Code
-- Windows PowerShell
-
+- HTML/CSS
+- Linux / Kali Linux
+- Git and GitHub
 
 ---
 
-
 ## 4. Project Structure
 
-
 ```text
-SECURE CODING/
+Task-3-Secure-Coding/
 │
 ├── vulnerable_app.py
-├── users.db
+├── secure_app.py
 ├── security_report.txt
-└── README.md
+├── final_security_report.txt
+├── requirements.txt
+├── README.md
+└── users.db
+users.db is generated locally for testing and is excluded from Git using .gitignore.
 
-vulnerable_app.py contains the Flask application and the secure implementation.
+File Description
 
-The original vulnerable implementations are preserved as comments next to the corresponding secure code for comparison and documentation.
+vulnerable_app.py
+
+The application used as the original code-review target.
+
+secure_app.py
+
+The improved version containing secure coding practices and remediation.
+
+security_report.txt
+
+Report generated from the security analysis of the original application.
+
+final_security_report.txt
+
+Final security analysis report after remediation.
+
+requirements.txt
+
+Lists the Python dependencies required to run the project.
+
+README.md
+
+Project documentation.
 
 5. Application Description
 
-The application is a small Flask-based web application containing:
+The Flask application contains several security-relevant functions:
 
-Login functionality
-SQLite database
-Password handling
+User login
+SQLite database interaction
+Password authentication
 Search functionality
 Network ping functionality
-Flask web routes
+User-controlled input processing
 
-The application was intentionally designed to contain security weaknesses for the purpose of security testing and secure coding practice.
+The project focuses on demonstrating how insecure coding patterns can introduce vulnerabilities and how they can be mitigated.
 
-6. Initial Vulnerabilities
+6. Security Issues Reviewed
 
-The first version of the application contained multiple security issues.
+The security review focuses on the following areas:
 
-The initial Bandit scan identified:
+Hardcoded application secrets
+SQL injection
+Command injection
+Password storage
+Flask debug configuration
+Cross-site scripting (XSS)
+Input validation
+Safe subprocess execution
+7. Hardcoded Secret
+Security Risk
 
-High:   2
-Medium: 1
-Low:    2
+Application secrets should not be stored directly in source code because source code may be shared through repositories or exposed to unauthorized users.
 
-The important findings included:
+Secure Implementation
 
-Hardcoded secret
-SQL Injection risk
-Command Injection risk
-Flask debug mode enabled
-Unsafe subprocess usage
-7. Vulnerability 1 – Hardcoded Secret
-Vulnerable Code
+The secure application loads the Flask secret from an environment variable:
 
-The original application contained a secret directly inside the source code:
-
-SECRET_KEY = "SuperSecret123"
-Security Problem
-
-Hardcoding secrets in source code can expose sensitive credentials if the source code is shared, uploaded to a repository, or accessed by an unauthorized person.
-
-Bandit identified this issue as:
-
-B105: hardcoded_password_string
-Remediation
-
-The secret was changed to be loaded from an environment variable:
-
-SECRET_KEY = os.environ.get(
+app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
-    "development-only-secret"
+    "local-development-secret"
 )
 
-This prevents the actual secret from being directly stored in the source code.
+The fallback value is intended only for local educational testing.
 
-8. Vulnerability 2 – SQL Injection
-Vulnerable Code
+For a real production deployment, a strong secret should be supplied through a secure environment or secret-management system.
 
-The original login functionality constructed the SQL query using string formatting:
+8. SQL Injection
+Security Risk
 
-query = f"""
-    SELECT * FROM users
-    WHERE username = '{username}'
-    AND password = '{password}'
-"""
+Building SQL statements by directly inserting user input can allow attackers to manipulate the intended SQL query.
 
+Secure Implementation
 
-cursor.execute(query)
-Security Problem
-
-User input was directly inserted into the SQL statement.
-
-This can allow specially crafted input to modify the intended SQL query.
-
-Bandit identified this as:
-
-B608: hardcoded_sql_expressions
-
-This finding was associated with:
-
-CWE-89: SQL Injection
-Remediation
-
-A parameterized SQL query was used:
-
-query = """
-    SELECT * FROM users
-    WHERE username = ? AND password = ?
-"""
-
+The secure application uses parameterized SQL:
 
 cursor.execute(
-    query,
-    (username, password_hash)
+    """
+    SELECT username, password
+    FROM users
+    WHERE username = ?
+    """,
+    (username,)
 )
 
-The username and password are now passed separately from the SQL statement.
+The user input is supplied separately from the SQL statement.
 
-This prevents user input from being interpreted as SQL syntax.
+Manual Test
 
-9. Vulnerability 3 – Command Injection
-Vulnerable Code
+A SQL injection-style login input was tested locally.
 
-The original application used user input with a shell command:
+Result:
 
-subprocess.check_output(
-    f"ping -n 1 {host}",
-    shell=True,
-    text=True
-)
-Security Problem
+Invalid username or password.
 
-Using shell=True with user-controlled input can create a command injection risk.
+The application did not authenticate the request.
 
-An attacker could potentially manipulate the input so that additional operating-system commands are interpreted by the shell.
+9. Command Injection
+Security Risk
 
-Bandit identified this as:
+Passing user-controlled input to a shell command using shell=True can allow additional operating-system commands to be interpreted.
 
-B602: subprocess_popen_with_shell_equals_true
+Secure Implementation
 
-This finding was associated with:
+The secure application:
 
-CWE-78: OS Command Injection
-Remediation
+Validates the supplied host.
+Does not use shell=True.
+Passes command arguments as a list.
+Uses a timeout.
+Handles command errors safely.
 
-The command was changed so that the arguments are passed separately:
+Example:
 
-subprocess.check_output(
-    ["ping", "-n", "1", host],
+subprocess.run(
+    ["ping", "-c", "1", host],
+    capture_output=True,
     text=True,
-    timeout=5
+    timeout=5,
+    check=False
+)
+Manual Test
+
+A command-injection test was performed using:
+
+127.0.0.1;whoami
+
+Result:
+
+Invalid host input.
+
+The malicious input was rejected before execution.
+
+10. Password Security
+Security Risk
+
+Passwords should never be stored directly in plaintext or using a fast general-purpose hash such as SHA-256 for password storage.
+
+Secure Implementation
+
+The secure application uses Werkzeug's password hashing functions:
+
+generate_password_hash()
+check_password_hash()
+
+The local demonstration database stores a modern password hash rather than the plaintext password.
+
+The database was recreated during testing to verify that the demonstration account was stored using the new password-hashing approach.
+
+11. Flask Debug Mode
+
+Debug mode can expose detailed application information and should not be enabled for a production application.
+
+The secure application explicitly runs with:
+
+app.run(
+    host="127.0.0.1",
+    port=5000,
+    debug=False
 )
 
-shell=True was removed.
+The Flask server output confirmed:
 
-Input validation was also added to restrict the allowed host input.
+Debug mode: off
+12. Cross-Site Scripting (XSS)
 
-This significantly reduces the risk of shell command injection.
+The search functionality accepts user-controlled input.
 
-10. Vulnerability 4 – Plaintext Password Storage
-Vulnerable Approach
+The secure application passes the value to a Jinja template:
 
-The initial application used a password directly for authentication.
+return render_template_string(
+    "... {{ query }} ...",
+    query=query
+)
 
-Storing passwords in plaintext is unsafe because anyone who gains access to the database could read the actual passwords.
+Jinja automatically escapes HTML characters in this context.
 
-Remediation
+Manual Test
 
-The application was modified to store a password hash instead of the plaintext password.
+The following harmless XSS test was performed locally:
 
-Conceptually:
+<script>alert('XSS')</script>
+The browser displayed the script as text instead of executing JavaScript.
 
-password_hash = hash_password(password)
+This demonstrated that the user-controlled input was being escaped.
 
-During login, the supplied password is processed and compared with the stored password representation.
+13. Input Validation
 
-This prevents the database from directly containing the user's plaintext password.
+The secure application validates user input before processing it.
 
-11. Vulnerability 5 – Flask Debug Mode
-Vulnerable Code
+Examples include:
 
-The original application used:
+Username format validation
+Username length restrictions
+Password presence validation
+Host/IP validation
+Search query length restriction
 
-app.run(debug=True)
-Security Problem
+Invalid input is rejected instead of being passed directly to sensitive operations.
 
-Flask debug mode should not be enabled in a production environment.
+14. Security Testing Performed
 
-The Werkzeug debugger can expose sensitive debugging information and may create serious security risks.
+The secure application was tested locally after remediation.
 
-Bandit identified:
+Test	Result
+Normal login	Passed
+SQL injection attempt	Rejected
+Password hashing	Verified
+Normal localhost ping	Passed
+Command injection attempt	Rejected
+XSS test	Escaped
+Flask debug mode	Disabled
 
-B201: flask_debug_true
-Remediation
+Example Flask logs from the testing session confirmed:
 
-Debug mode was disabled:
+GET /ping?host=127.0.0.1 HTTP/1.1" 200
+GET /ping?host=127.0.0.1;whoami HTTP/1.1" 400
+GET /search?q=<script>alert('XSS')</script> HTTP/1.1" 200
+15. Static Security Analysis
 
-app.run(debug=False)
-12. XSS Protection
+Bandit is used as the static security analysis tool for this project.
 
-The application also uses safe template rendering for user-controlled search input.
-
-Instead of directly inserting user input into HTML, the application passes the value to a template:
-
-return render_template_string("""
-    <h2>Search Results</h2>
-    <p>You searched for: {{ query }}</p>
-""", query=query)
-
-Template escaping helps prevent user input from being interpreted as executable HTML or JavaScript.
-
-13. Static Security Analysis
-
-Bandit was used as the static security analyzer.
-
-The initial scan was performed using:
-
-python -m bandit -r vulnerable_app.py
-
-The initial scan identified:
-
-High:   2
-Medium: 1
-Low:    2
-
-A security report was also generated using:
-
-python -m bandit -r vulnerable_app.py -f txt -o security_report.txt
-14. Remediation Process
-
-The security review followed this process:
+The security review follows this workflow:
 
 Source Code
      ↓
 Manual Code Review
      ↓
-Bandit Security Scan
+Bandit Scan
      ↓
-Vulnerabilities Identified
+Security Findings
      ↓
-Security Remediation
+Secure Coding Remediation
      ↓
 Application Testing
      ↓
 Bandit Re-scan
      ↓
 Final Verification
-15. Before vs After
-Security Issue	Before	After
-Hardcoded Secret	Secret stored in source code	Environment variable
-SQL Injection	String-based SQL query	Parameterized query
-Command Injection	shell=True	Arguments passed separately
-Password Storage	Plaintext approach	Password hashing
-Flask Debug	debug=True	debug=False
-XSS	Unsafe direct HTML insertion	Template escaping
-16. Final Security Scan
 
-After remediation, Bandit was executed again:
+Bandit was run against both the original code-review target and the
+remediated secure application.
 
-python -m bandit -r vulnerable_app.py
+Original code-review target:
 
-The final scan showed:
+    bandit -r vulnerable_app.py
 
-High:   0
-Medium: 0
-Low:    3
+Results:
 
-The High and Medium severity findings identified during the initial review were therefore resolved.
+    High:   0
+    Medium: 0
+    Low:    3
 
-The remaining Low severity findings were related to the use of the subprocess module and its safe invocation. These are security-review warnings rather than the original high/medium vulnerabilities.
+Remediated application:
 
-17. Application Testing
+    bandit -r secure_app.py
 
-After applying the security fixes, the application was tested manually.
+Results:
 
-The login functionality was tested using the configured test account.
+    High:   0
+    Medium: 0
+    Low:    3
 
-The application successfully processed the login request and continued to operate after the security changes.
+The three Low-severity findings in the remediated application are
+related to the use of the Python subprocess module for the local
+ping functionality:
 
-This confirmed that the remediation did not break the main application functionality.
+- B404: subprocess module import
+- B607: partial executable path
+- B603: subprocess call requiring security review
 
-18. Security Best Practices Applied
+The secure implementation does not use shell=True, validates the host
+input, passes command arguments as a list, and applies a timeout.
+Manual testing was also performed to verify that command-injection
+input was rejected.
 
-The following secure coding practices were applied:
+The complete Bandit outputs are stored in:
 
-Never hardcode sensitive secrets.
+    security_report.txt
+    final_security_report.txt
+
+16. Before and After
+
+Security Area             Original / Reviewed Approach       Secure Approach
+Application secret        Security-sensitive configuration  Environment variable with local fallback
+SQL queries               SQL handling reviewed              Parameterized queries
+Command execution         subprocess usage reviewed          Argument list + input validation
+Password storage          SHA-256-based handling reviewed    Werkzeug password hashing
+Flask debug               Debug configuration reviewed      Debug disabled
+XSS                       Output handling reviewed           Jinja template escaping
+Input validation          Limited validation                 Explicit validation
+Error handling            Detailed/internal errors           Generic user-facing errors
+
+The secure application separates the reviewed code from the
+remediated implementation so that the security improvements can be
+clearly demonstrated and tested.
+
+17. Security Best Practices Applied
+
+The project demonstrates the following practices:
+
+Do not hardcode sensitive secrets.
 Use environment variables for application secrets.
 Use parameterized SQL queries.
-Never construct SQL queries directly from user input.
-Avoid shell=True when processing user-controlled input.
-Validate and restrict user input.
-Never store passwords in plaintext.
-Use password hashing.
-Disable Flask debug mode outside development.
-Escape user-controlled output before rendering it as HTML.
-Use static security analysis tools during development.
-Perform security testing again after remediation.
-19. Limitations
+Validate user input.
+Avoid shell=True for user-controlled input.
+Use password hashing designed for passwords.
+Disable debug mode outside development.
+Escape user-controlled HTML output.
+Use timeouts for external process execution.
+Handle application errors without exposing internal details.
+Perform static security analysis.
+Test security fixes after remediation.
+18. Limitations
 
-This project is an educational secure coding review and is not a complete production security audit.
+This is an educational secure coding project and is not a complete production security audit.
 
-Bandit performs static analysis and therefore cannot identify every possible application vulnerability.
+Bandit performs static analysis and cannot detect every possible vulnerability.
 
-Additional security testing would be required for a production application, including:
+A production application would require additional testing such as:
 
 Dynamic application security testing
 Dependency vulnerability scanning
@@ -358,33 +390,21 @@ Authorization testing
 Session security testing
 Configuration review
 Manual penetration testing
-20. Security and Ethical Considerations
+Secure deployment configuration
+19. Security and Ethical Considerations
 
-The application was created for educational security testing.
+This project is intended for local educational security testing.
 
-Security testing should only be performed on applications and systems where permission has been provided.
+Security testing should only be performed on applications and systems where appropriate permission has been provided.
 
-The techniques demonstrated in this project should be used for defensive security, secure development and authorized testing.
+The techniques demonstrated in this project should be used for defensive security, secure development, and authorized testing.
 
-21. Conclusion
+20. Conclusion
 
-The Secure Coding Review project demonstrated the process of identifying and fixing common security vulnerabilities in a Python Flask application.
+This project demonstrates a practical secure coding review of a Python Flask application.
 
-The application was first analyzed using manual code review and Bandit.
+The project combines manual code review, static security analysis, secure coding remediation, and application testing.
 
-The review identified security issues including:
+The remediated application demonstrates protections against several common security weaknesses, including SQL injection, command injection, insecure password handling, unsafe secret management, XSS, and insecure debug configuration.
 
-SQL Injection
-Command Injection
-Hardcoded secrets
-Unsafe password handling
-Flask debug mode
-Potential XSS
-
-Secure coding techniques were then applied to remediate these issues.
-
-After remediation, the application was tested again and Bandit was re-run.
-
-The final scan reduced the High and Medium severity findings to zero.
-
-This project demonstrates the importance of integrating security into the software development process rather than treating security as a final step.
+The project also demonstrates the importance of testing security controls after making code changes.
